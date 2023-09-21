@@ -1,7 +1,6 @@
 #!/bin/bash
 # WARNING Might not be able to run standalone, not tested. -Bryce
 
-
 #TODO: Should check to see if SSH Keys are already generated first
 
 # 
@@ -63,4 +62,4 @@ Host hb
 EOL
 
 echo "Done!"
-echo "You should be able to ssh into hummingbird by just typing 'ssh hb' now!
+echo "You should be able to ssh into hummingbird by just typing 'ssh hb' now!"
