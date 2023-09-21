@@ -2,6 +2,78 @@
 # WARNING Might not be able to run standalone, not tested. -Bryce
 
 #TODO: Should check to see if SSH Keys are already generated first
+#Now checking for SSH keys, and creating them if they are not present. Hopefully
+
+# Check if the 'openssh' package, which provides ssh-keygen, is installed
+if ! dnf list installed openssh &>/dev/null; then
+    echo "The openssh package is not installed. Attempting to install..."
+    if ! sudo dnf install -y openssh; then
+        echo "Error: Failed to install the openssh package. Please check your permissions or manually install the package."
+        exit 1
+    fi
+fi
+
+# Define a list of key types and their default paths
+declare -A KEY_TYPES
+KEY_TYPES=(
+    ["rsa"]="$HOME/.ssh/id_rsa"
+    ["ecdsa"]="$HOME/.ssh/id_ecdsa"
+    ["ed25519"]="$HOME/.ssh/id_ed25519"
+)
+
+# Loop through each key type and check if it exists. Generate if not.
+for key_type in "${!KEY_TYPES[@]}"; do
+    key_path="${KEY_TYPES[$key_type]}"
+    if [[ -f "$key_path" ]]; then
+        echo "Found existing SSH key of type $key_type at $key_path."
+    else
+        echo "No $key_type SSH key found. Generating one..."
+        ssh-keygen -t $key_type
+    fi
+done
+
+#WARNING This script assumes that the user's SSH keys are stored in the default location (~/.ssh). Change the script accordingly if a different path is used.
+
+# Initialize an empty array to hold the names of SSH key files
+ssh_keys=()
+
+# Check the ~/.ssh directory for key files and add them to the array
+echo "Checking for ssh keys in the default directory."
+for filename in $HOME/.ssh/id_*; do
+  [ -e "$filename" ] || continue
+  if [[ ! "$filename" =~ \.pub$ ]]; then
+    ssh_keys+=($(basename $filename))
+  fi
+done
+
+# Check if we found any keys
+if [ ${#ssh_keys[@]} -eq 0 ]; then
+  echo "No existing SSH keys found."
+else
+  echo "Found the following SSH keys:"
+  for i in "${!ssh_keys[@]}"; do
+    echo "$((i+1)). ${ssh_keys[i]}"
+  done
+
+  # Ask if the user wants to display a public key
+  read -r -p "Would you like to display the public key for any of these so you can copy them? [y/n]: " response
+  if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    if [ ${#ssh_keys[@]} -gt 1 ]; then
+      read -r -p "Which one would you like to display? (Enter the number): " choice
+      key_to_display=${ssh_keys[$((choice-1))]}
+    else
+      key_to_display=${ssh_keys[0]}
+    fi
+
+    if [ -f "$HOME/.ssh/$key_to_display.pub" ]; then
+      echo "Displaying public key for $key_to_display:"
+      cat "$HOME/.ssh/$key_to_display.pub"
+    else
+      echo "Public key file for $key_to_display not found."
+    fi
+  fi
+fi
+
 
 # 
 # Loop asking the user for their CruzID until the user confirms their CruzID
@@ -51,15 +123,19 @@ fi
 # Ensure correct permissions for ~/.ssh/config file
 chmod 600 "$CONFIG_FILE"	#Give read & write permissions to the config file
 
-# Append ssh configuration to config file
-echo "Appending hb server configuration to $CONFIG_FILE..."
-
-cat <<EOL >> "$CONFIG_FILE"
+# Check if the server configuration already exists in the config file
+if grep -q "^Host hb$" "$CONFIG_FILE"; then
+  echo "Server configuration for 'hb' already exists in $CONFIG_FILE."
+else
+  echo "Appending server configuration to $CONFIG_FILE..."
+  cat <<EOL >> "$CONFIG_FILE"
 # Configuration for hb.ucsc.edu
 Host hb
   HostName hb.ucsc.edu
   User $CruzID
 EOL
+  echo "Done!"
+fi
 
 echo "Done!"
 echo "You should be able to ssh into hummingbird by just typing 'ssh hb' now!"
