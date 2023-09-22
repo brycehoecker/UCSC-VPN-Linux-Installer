@@ -1,9 +1,9 @@
 #!/bin/bash
 # WARNING Might not be able to run standalone, not tested. -Bryce
-
+#
 #TODO: Should check to see if SSH Keys are already generated first
-#Now checking for SSH keys, and creating them if they are not present. Hopefully
-
+#INPROGRESS checking for SSH keys, and creating them if they are not present. Hopefully
+#
 # Check if the 'openssh' package, which provides ssh-keygen, is installed
 if ! dnf list installed openssh &>/dev/null; then
     echo "The openssh package is not installed. Attempting to install..."
@@ -123,19 +123,68 @@ fi
 # Ensure correct permissions for ~/.ssh/config file
 chmod 600 "$CONFIG_FILE"	#Give read & write permissions to the config file
 
-# Check if the server configuration already exists in the config file
-if grep -q "^Host hb$" "$CONFIG_FILE"; then
-  echo "Server configuration for 'hb' already exists in $CONFIG_FILE."
-else
-  echo "Appending server configuration to $CONFIG_FILE..."
-  cat <<EOL >> "$CONFIG_FILE"
-# Configuration for hb.ucsc.edu
-Host hb
-  HostName hb.ucsc.edu
+## Check if the server configuration already exists in the config file
+#if grep -q "^Host hb$" "$CONFIG_FILE"; then
+#  echo "Server configuration for 'hb' already exists in $CONFIG_FILE."
+#else
+#  echo "Appending server configuration to $CONFIG_FILE..."
+#  cat <<EOL >> "$CONFIG_FILE"
+## Configuration for hb.ucsc.edu
+#Host hb
+#  HostName hb.ucsc.edu
+#  User $CruzID
+#EOL
+#  echo "Done!"
+#fi
+#
+## A function to add server configurations if they don't already exist
+#add_server_config() {
+#  local host="$1"
+#  local hostname="$2"
+#  if grep -q "^Host $host$" "$CONFIG_FILE"; then
+#    echo "Server configuration for '$host' already exists in $CONFIG_FILE."
+#  else
+#    echo "Appending server configuration for '$host' to $CONFIG_FILE..."
+#    cat <<EOL >> "$CONFIG_FILE"
+## Configuration for $hostname
+#Host $host
+#  HostName $hostname
+#  User $CruzID
+#EOL
+#    echo "Done for $host!"
+#  fi
+#}
+#
+## Add configurations for the servers
+#add_server_config "hb" "hb.ucsc.edu"
+#add_server_config "vhe4" "vhe4.ucsc.edu"
+#add_server_config "vhe7" "vhe7.ucsc.edu"
+
+# A function to add server configurations if they don't already exist
+add_server_config() {
+  local host="$1"
+  local hostname="$2"
+  local extra_config="$3"
+
+  if grep -q "^Host $host$" "$CONFIG_FILE"; then
+    echo "Server configuration for '$host' already exists in $CONFIG_FILE."
+  else
+    echo "Appending server configuration for '$host' to $CONFIG_FILE..."
+    cat <<EOL >> "$CONFIG_FILE"
+# Configuration for $hostname
+Host $host
+  HostName $hostname
   User $CruzID
+  $extra_config
 EOL
-  echo "Done!"
-fi
+    echo "Done for $host!"
+  fi
+}
+
+# Add configurations for the servers
+add_server_config "hb" "hb.ucsc.edu" ""
+add_server_config "vhe4" "vhe4.ucsc.edu" "HostKeyAlgorithms +ssh-rsa"
+add_server_config "vhe7" "vhe7.ucsc.edu" "HostKeyAlgorithms +ssh-rsa"
 
 echo "Done!"
 echo "You should be able to ssh into hummingbird by just typing 'ssh hb' now!"
